@@ -34,6 +34,9 @@ NODE_ENV = "development"
 
 # DO NOT store secrets in [vars]; set via `wrangler secret put`
 #
+# UploadThing (upload_file tool):
+#   wrangler secret put UPLOADTHING_TOKEN
+#
 # Required secrets for OAuth:
 #   wrangler secret put PROVIDER_CLIENT_ID
 #   wrangler secret put PROVIDER_CLIENT_SECRET

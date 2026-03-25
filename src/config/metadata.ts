@@ -16,28 +16,17 @@ export interface ToolMetadata {
 }
 
 export const toolsMetadata = {
-  example_api: {
-    name: 'example_api',
-    title: 'Example API Tool',
-    description: `Call an example external API endpoint and return the response.
-
-This tool demonstrates best practices for:
-- Making HTTP requests to external APIs
-- Handling responses and errors gracefully
-- Validating input parameters with Zod schemas
-- Formatting output for LLM consumption
-
-The tool can be customized for any REST API by modifying:
-1. The API endpoint URL
-2. Input schema validation rules
-3. Response parsing and formatting logic
-4. Error handling for specific API error codes`,
+  upload_file: {
+    name: 'upload_file',
+    title: 'Upload file',
+    description:
+      'Upload one file to UploadThing (base64 body + filename). Returns a shareable URL and metadata, or a structured error.',
   },
 } as const satisfies Record<string, ToolMetadata>;
 
 /**
  * Type-safe helper to get metadata for a tool.
- * Usage: getToolMetadata('example_api')
+ * Usage: getToolMetadata('upload_file')
  */
 export function getToolMetadata(toolName: keyof typeof toolsMetadata): ToolMetadata {
   return toolsMetadata[toolName];
@@ -54,7 +43,7 @@ export function getToolNames(): string[] {
  * Server-level metadata
  */
 export const serverMetadata = {
-  title: 'MCP Server Template',
+  title: 'UploadThing MCP',
   instructions:
-    'Use the available tools to inspect resources, run API calls, and keep responses concise.',
+    'Use upload_file to store a single file and obtain a shareable URL. Prefer structured tool output over guessing URLs.',
 } as const;

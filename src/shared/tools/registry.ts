@@ -10,6 +10,7 @@ import { getCurrentAuthContext } from '../../core/context.js';
 import { logger } from '../utils/logger.js';
 import { echoTool } from './echo.js';
 import { healthTool } from './health.js';
+import { uploadFileTool } from './upload-file.js';
 import type { SharedToolDefinition, ToolContext, ToolResult } from './types.js';
 
 /**
@@ -107,6 +108,7 @@ function asRegisteredTool<T extends ZodRawShape>(
 export const sharedTools: RegisteredTool[] = [
   asRegisteredTool(healthTool),
   asRegisteredTool(echoTool),
+  asRegisteredTool(uploadFileTool),
 ];
 
 /**
