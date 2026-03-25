@@ -70,6 +70,11 @@ bun dev
 
 Workers: use `wrangler secret put UPLOADTHING_TOKEN` and env bindings from `wrangler.example.toml`.
 
+## Documentation
+
+- **[guide.md](./guide.md)** — integrate this MCP server from a custom app (HTTP client, auth, patterns).
+- **[TESTING.md](./TESTING.md)** — run the server and test `upload_file` manually.
+
 ## Project layout
 
 - `src/shared/tools/` — `upload_file` + registry
