@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   decodeBase64ToBytes,
   getMaxUploadBytes,
-  getUtapi,
   inferMediaTypeFromFileName,
   uploadBytes,
 } from '../services/uploadthing.js';
@@ -43,10 +42,6 @@ export const uploadFileTool = defineTool({
   inputSchema: uploadFileInputSchema,
   outputSchema: uploadFileOutputSchema,
   annotations: {
-    title: 'Upload file to UploadThing',
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
     openWorldHint: true,
   },
   handler: async (args) => {
@@ -67,10 +62,6 @@ export const uploadFileTool = defineTool({
         isError: true,
       };
     };
-
-    if (!getUtapi()) {
-      return fail('UPLOADTHING_TOKEN is not set');
-    }
 
     let bytes: Uint8Array;
     try {
