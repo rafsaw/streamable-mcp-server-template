@@ -218,59 +218,6 @@ async function handlePing(): Promise<JsonRpcResult> {
   return { result: {} };
 }
 
-/** Current log level (can be changed via logging/setLevel) */
-let currentLogLevel:
-  | 'debug'
-  | 'info'
-  | 'notice'
-  | 'warning'
-  | 'error'
-  | 'critical'
-  | 'alert'
-  | 'emergency' = 'info';
-
-async function handleLoggingSetLevel(
-  params: Record<string, unknown> | undefined,
-): Promise<JsonRpcResult> {
-  const level = params?.level as string | undefined;
-
-  const validLevels = [
-    'debug',
-    'info',
-    'notice',
-    'warning',
-    'error',
-    'critical',
-    'alert',
-    'emergency',
-  ];
-
-  if (!level || !validLevels.includes(level)) {
-    return {
-      error: {
-        code: JsonRpcErrorCode.InvalidParams,
-        message: `Invalid log level. Must be one of: ${validLevels.join(', ')}`,
-      },
-    };
-  }
-
-  currentLogLevel = level as typeof currentLogLevel;
-
-  logger.info('mcp_dispatch', {
-    message: 'Log level changed',
-    level: currentLogLevel,
-  });
-
-  return { result: {} };
-}
-
-/**
- * Get the current log level set by the client.
- */
-export function getLogLevel(): string {
-  return currentLogLevel;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Dispatcher
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,9 +264,6 @@ export async function dispatchMcpMethod(
 
     case 'ping':
       return handlePing();
-
-    case 'logging/setLevel':
-      return handleLoggingSetLevel(params);
 
     default:
       logger.debug('mcp_dispatch', { message: 'Unknown method', method });

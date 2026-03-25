@@ -35,6 +35,17 @@ export function toProviderInfo(tokens: ProviderTokens): ProviderInfo {
 }
 
 /**
+ * Normalize storage-shaped or handler-shaped provider for ToolContext.
+ */
+export function toolProviderFromAuth(
+  p: ProviderInfo | ProviderTokens | undefined,
+): ProviderInfo | undefined {
+  if (!p) return undefined;
+  if ('accessToken' in p) return p as ProviderInfo;
+  return toProviderInfo(p as ProviderTokens);
+}
+
+/**
  * Convert camelCase ProviderInfo to snake_case ProviderTokens.
  * Use when storing tool-provided data.
  */

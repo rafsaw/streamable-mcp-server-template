@@ -9,12 +9,12 @@ import {
 import { defineTool } from './types.js';
 
 export const uploadFileInputSchema = z.object({
-  name: z
+  file_name: z
     .string()
     .min(1)
     .max(255)
     .describe('File name including extension (e.g. report.pdf, image.png).'),
-  content_base64: z
+  file_content: z
     .string()
     .min(1)
     .describe(
@@ -23,25 +23,15 @@ export const uploadFileInputSchema = z.object({
 });
 
 const uploadFileOutputSchema = {
-  success: z.boolean().describe('True when the file was uploaded successfully.'),
-  key: z.string().describe('UploadThing file key; empty when success is false.'),
-  name: z.string().describe('Original file name.'),
-  size: z.number().int().min(0).describe('Size in bytes; 0 when success is false.'),
-  url: z.string().describe('Shareable file URL; empty when success is false.'),
-  media_type: z
-    .string()
-    .describe('MIME type used for the upload; empty when success is false.'),
-  error_code: z
-    .string()
-    .describe('Machine-readable error code; empty when success is true.'),
-  error_message: z
-    .string()
-    .max(200)
-    .describe('Short error message; empty when success is true.'),
+  success: z.boolean(),
+  file_name: z.string(),
+  file_url: z.string().nullable(),
+  file_key: z.string().nullable(),
+  error: z.string().nullable(),
 };
 
-function truncateMessage(msg: string, max = 200): string {
-  const s = msg.replace(/\s+/g, ' ').trim();
+function shortError(message: string, max = 200): string {
+  const s = message.replace(/\s+/g, ' ').trim();
   return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
 }
 
@@ -49,7 +39,7 @@ export const uploadFileTool = defineTool({
   name: 'upload_file',
   title: 'Upload file',
   description:
-    'Upload one file to UploadThing using server credentials. Returns a shareable URL and metadata, or a structured error.',
+    'Upload one file to UploadThing. Returns file_url and file_key on success, or a short error string.',
   inputSchema: uploadFileInputSchema,
   outputSchema: uploadFileOutputSchema,
   annotations: {
@@ -60,122 +50,61 @@ export const uploadFileTool = defineTool({
     openWorldHint: true,
   },
   handler: async (args) => {
-    const name = args.name.trim();
-    const mediaType = inferMediaTypeFromFileName(name);
+    const file_name = args.file_name.trim();
+    const mediaType = inferMediaTypeFromFileName(file_name);
 
-    if (!getUtapi()) {
+    const fail = (error: string) => {
       const structured = {
         success: false,
-        key: '',
-        name,
-        size: 0,
-        url: '',
-        media_type: '',
-        error_code: 'NOT_CONFIGURED',
-        error_message: truncateMessage('UPLOADTHING_TOKEN is not set'),
+        file_name,
+        file_url: null,
+        file_key: null,
+        error: shortError(error),
       };
       return {
-        content: [{ type: 'text', text: structured.error_message }],
-        structuredContent: structured,
+        content: [{ type: 'text' as const, text: structured.error }],
+        structuredContent: structured as Record<string, unknown>,
         isError: true,
       };
+    };
+
+    if (!getUtapi()) {
+      return fail('UPLOADTHING_TOKEN is not set');
     }
 
     let bytes: Uint8Array;
     try {
-      bytes = decodeBase64ToBytes(args.content_base64);
+      bytes = decodeBase64ToBytes(args.file_content);
     } catch {
-      const structured = {
-        success: false,
-        key: '',
-        name,
-        size: 0,
-        url: '',
-        media_type: '',
-        error_code: 'INVALID_BASE64',
-        error_message: truncateMessage('content_base64 is not valid base64'),
-      };
-      return {
-        content: [{ type: 'text', text: structured.error_message }],
-        structuredContent: structured,
-        isError: true,
-      };
+      return fail('file_content is not valid base64');
     }
 
     const maxBytes = getMaxUploadBytes();
     if (bytes.length > maxBytes) {
-      const structured = {
-        success: false,
-        key: '',
-        name,
-        size: 0,
-        url: '',
-        media_type: '',
-        error_code: 'FILE_TOO_LARGE',
-        error_message: truncateMessage(
-          `Decoded size ${bytes.length} exceeds limit ${maxBytes}`,
-        ),
-      };
-      return {
-        content: [{ type: 'text', text: structured.error_message }],
-        structuredContent: structured,
-        isError: true,
-      };
+      return fail(`File size ${bytes.length} exceeds limit ${maxBytes}`);
     }
 
     if (bytes.length === 0) {
-      const structured = {
-        success: false,
-        key: '',
-        name,
-        size: 0,
-        url: '',
-        media_type: '',
-        error_code: 'EMPTY_FILE',
-        error_message: truncateMessage('Decoded file is empty'),
-      };
-      return {
-        content: [{ type: 'text', text: structured.error_message }],
-        structuredContent: structured,
-        isError: true,
-      };
+      return fail('Decoded file is empty');
     }
 
-    const outcome = await uploadBytes(name, bytes, mediaType);
-
+    const outcome = await uploadBytes(file_name, bytes, mediaType);
     if (!outcome.ok) {
-      const structured = {
-        success: false,
-        key: '',
-        name,
-        size: 0,
-        url: '',
-        media_type: '',
-        error_code: outcome.error.code.slice(0, 64) || 'UPLOAD_FAILED',
-        error_message: truncateMessage(outcome.error.message || 'Upload failed'),
-      };
-      return {
-        content: [{ type: 'text', text: structured.error_message }],
-        structuredContent: structured,
-        isError: true,
-      };
+      return fail(outcome.error.message || 'Upload failed');
     }
 
-    const { key, url, name: returnedName, size } = outcome.data;
+    const { key, url, name: returnedName } = outcome.data;
     const structured = {
       success: true,
-      key,
-      name: returnedName || name,
-      size,
-      url,
-      media_type: mediaType,
-      error_code: '',
-      error_message: '',
+      file_name: returnedName || file_name,
+      file_url: url,
+      file_key: key,
+      error: null,
     };
 
     return {
       content: [{ type: 'text', text: url }],
-      structuredContent: structured,
+      structuredContent: structured as Record<string, unknown>,
     };
   },
 });

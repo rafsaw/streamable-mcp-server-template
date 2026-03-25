@@ -7,11 +7,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ZodObject, ZodRawShape, ZodTypeAny } from 'zod';
 import { getCurrentAuthContext } from '../../core/context.js';
+import type { ProviderTokens } from '../storage/interface.js';
+import { type ProviderInfo, toolProviderFromAuth } from '../types/provider.js';
 import { logger } from '../utils/logger.js';
-import { echoTool } from './echo.js';
-import { healthTool } from './health.js';
-import { uploadFileTool } from './upload-file.js';
 import type { SharedToolDefinition, ToolContext, ToolResult } from './types.js';
+import { uploadFileTool } from './upload-file.js';
 
 /**
  * Extract the shape from a Zod schema, handling ZodEffects (refined schemas).
@@ -53,17 +53,22 @@ interface ToolHandlerExtra {
 }
 
 /**
+ * Auth slice from resolver or AsyncLocalStorage (provider may be storage or handler shape).
+ */
+export type AuthContextSlice = {
+  authStrategy?: ToolContext['authStrategy'];
+  providerToken?: string;
+  provider?: ProviderInfo | ProviderTokens;
+  resolvedHeaders?: Record<string, string>;
+};
+
+/**
  * Optional context resolver for Node.js runtime.
  * Allows looking up auth context by requestId.
  */
-export type ContextResolver = (requestId: string | number) =>
-  | {
-      authStrategy?: ToolContext['authStrategy'];
-      providerToken?: string;
-      provider?: ToolContext['provider'];
-      resolvedHeaders?: Record<string, string>;
-    }
-  | undefined;
+export type ContextResolver = (
+  requestId: string | number,
+) => AuthContextSlice | undefined;
 
 // Re-export types for convenience
 export type { SharedToolDefinition, ToolContext, ToolResult } from './types.js';
@@ -105,11 +110,7 @@ function asRegisteredTool<T extends ZodRawShape>(
  * All shared tools available in both runtimes.
  * Add new tools here to make them available everywhere.
  */
-export const sharedTools: RegisteredTool[] = [
-  asRegisteredTool(healthTool),
-  asRegisteredTool(echoTool),
-  asRegisteredTool(uploadFileTool),
-];
+export const sharedTools: RegisteredTool[] = [asRegisteredTool(uploadFileTool)];
 
 /**
  * Get a tool by name.
@@ -243,7 +244,7 @@ export function registerTools(
       },
       async (args: Record<string, unknown>, extra: ToolHandlerExtra) => {
         // Look up auth context from registry if resolver provided
-        let authContext =
+        let authContext: AuthContextSlice | undefined =
           extra.requestId && contextResolver
             ? contextResolver(extra.requestId)
             : undefined;
@@ -251,7 +252,15 @@ export function registerTools(
         // Fallback to AsyncLocalStorage if requestId not available
         // This is the primary method since MCP SDK doesn't pass requestId to tool handlers
         if (!authContext) {
-          authContext = getCurrentAuthContext();
+          const fromAls = getCurrentAuthContext();
+          if (fromAls) {
+            authContext = {
+              authStrategy: fromAls.authStrategy,
+              providerToken: fromAls.providerToken,
+              provider: fromAls.provider,
+              resolvedHeaders: fromAls.resolvedHeaders,
+            };
+          }
         }
 
         const context: ToolContext = {
@@ -261,10 +270,9 @@ export function registerTools(
             progressToken: extra._meta?.progressToken,
             requestId: extra.requestId?.toString(),
           },
-          // Auth data from context resolver or AsyncLocalStorage
           authStrategy: authContext?.authStrategy,
           providerToken: authContext?.providerToken,
-          provider: authContext?.provider,
+          provider: toolProviderFromAuth(authContext?.provider),
           resolvedHeaders: authContext?.resolvedHeaders,
         };
 

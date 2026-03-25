@@ -20,7 +20,7 @@ export const toolsMetadata = {
     name: 'upload_file',
     title: 'Upload file',
     description:
-      'Upload one file to UploadThing (base64 body + filename). Returns a shareable URL and metadata, or a structured error.',
+      'Upload one file to UploadThing. Input: file_name, file_content (base64). Output: success, file_url, file_key, error.',
   },
 } as const satisfies Record<string, ToolMetadata>;
 
